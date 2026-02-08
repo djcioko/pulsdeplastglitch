@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Puls-Deplasat Studio V16 - Shatter FX</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+    <style>
+        :root { --accent: #00d4ff; --bg: #0a0a0a; --fx: #ff0050; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        .sidebar { width: 280px; background: #151515; border-right: 1px solid #333; padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+        .main-stage { flex-grow: 1; display: flex; background: #000; justify-content: center; align-items: center; padding: 10px; }
+        
+        #canvas-container { height: 95vh; aspect-ratio: 9 / 16; position: relative; background: #111; border: 2px solid #444; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+        canvas { width: 100%; height: 100%; cursor: move; }
+        
+        .card { background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; margin-bottom: 5px; }
+        h3 { font-size: 10px; margin: 0 0 8px 0; color: var(--accent); text-transform: uppercase; border-bottom: 1px solid #333; }
+        input, button, select { width: 100%; background: #000; border: 1px solid #444; color: white; padding: 6px; border-radius: 4px; font-size: 11px; margin-bottom: 5px; }
+        .btn-start { background: #2ed573 !important; color: #000; font-weight: bold; cursor: pointer; }
+        .btn-fx { background: var(--fx) !important; color: white; font-weight: bold; }
+        label { font-size: 9px; color: #888; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="card">
+        <h3>1. Camera Principala (C)</h3>
+        <button id="loadBtn" class="btn-start">PORNESTE CAMERA</button>
+        <button id="toggleAI">AI CUT-OUT: OFF</button>
+        <label>Scalare</label>
+        <input type="range" id="camSize" min="10" max="450" value="100">
+    </div>
+
+    <div class="card" style="border-color: var(--fx)">
+        <h3>2. Shatter & Deplasare (ENTER)</h3>
+        <button id="toggleFX" class="btn-fx">FX: OFF (ENTER)</button>
+        <label>Intensitate Spargere</label>
+        <input type="range" id="fxPower" min="0" max="250" value="100">
+        <label>Viteza Puls</label>
+        <input type="range" id="fxSpeed" min="1" max="40" value="15">
+        <label>Glow (Contur Alb)</label>
+        <input type="range" id="fxGlow" min="0" max="60" value="25">
+    </div>
+
+    <div class="card">
+        <h3>3. Fundal Chroma</h3>
+        <select id="bgSource">
+            <option value="green">Verde (Chroma)</option>
+            <option value="black">Negru</option>
+            <option value="photo">Imagine Upload</option>
+        </select>
+        <input type="file" id="fileInp" style="display:none">
+    </div>
+</div>
+
+<div class="main-stage">
+    <div id="canvas-container">
+        <canvas id="c_out"></canvas>
+    </div>
+</div>
+
+<video id="v_raw" autoplay muted playsinline style="display:none"></video>
+<img id="img_bg" style="display:none">
+
+<script>
+    const video = document.getElementById('v_raw');
+    const canvas = document.getElementById('c_out');
+    const ctx = canvas.getContext('2d');
+    const imgBg = document.getElementById('img_bg');
+    
+    let aiActive = false, fxActive = false;
+    const renderW = 1080, renderH = 1920;
+
+    const cam = { x: 540, y: 960, s: 100, visible: true };
+    const fx = { x: 540, y: 960, s: 100, p: 100, spd: 15, glow: 25 };
+
+    const selfie = new SelfieSegmentation({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`});
+    selfie.setOptions({ modelSelection: 1 });
+    selfie.onResults(onResults);
+
+    function onResults(results) {
+        canvas.width = renderW; canvas.height = renderH;
+        
+        const bgType = document.getElementById('bgSource').value;
+        if(bgType === 'green') { ctx.fillStyle = "#00ff00"; ctx.fillRect(0,0,renderW,renderH); }
+        else if(bgType === 'photo' && imgBg.src) { ctx.drawImage(imgBg, 0, 0, renderW, renderH); }
+        else { ctx.fillStyle = "#000"; ctx.fillRect(0,0,renderW,renderH); }
+
+        if (cam.visible) drawLayer(results, cam, false);
+        
+        if (fxActive) {
+            // Efectul de spargere (Shatter) - desenam 12 fragmente "fantomă"
+            for(let i = 0; i < 12; i++) {
+                ctx.save();
+                ctx.globalAlpha = 0.2; // Transparență pentru fragmente
+                const t = Date.now() * (fx.spd * 0.001);
+                const driftX = Math.cos(t + i) * fx.p;
+                const driftY = Math.sin(t + i) * fx.p;
+                
+                // Desenăm fragmentul deplasat
+                drawLayer(results, { ...fx, x: fx.x + driftX, y: fx.y + driftY }, true);
+                ctx.restore();
+            }
+            // Desenăm și camera principală FX cu Glow
+            drawLayer(results, fx, true);
+        }
+    }
+
+    function drawLayer(results, state, isFX) {
+        let w = renderW * (state.s / 100);
+        let h = (video.videoHeight / video.videoWidth) * w || w * 1.77;
+        let x = state.x - w/2;
+        let y = state.y - h/2;
+
+        ctx.save();
+        if(isFX) {
+            const t = Date.now() * (state.spd * 0.0005);
+            const p = Math.sin(t * 7) * (state.p / 2);
+            w += p; h += p * 1.77;
+            
+            // Adăugăm Edge Glow (conturul alb)
+            ctx.shadowBlur = fx.glow;
+            ctx.shadowColor = "white";
+        }
+
+        if (aiActive && results.segmentationMask) {
+            const off = document.createElement('canvas'); off.width = renderW; off.height = renderH;
+            const oCtx = off.getContext('2d');
+            oCtx.drawImage(results.image, x, y, w, h);
+            oCtx.globalCompositeOperation = 'destination-in';
+            oCtx.drawImage(results.segmentationMask, x, y, w, h);
+            ctx.drawImage(off, 0, 0);
+        } else if (video.readyState >= 2) {
+            ctx.drawImage(video, x, y, w, h);
+        }
+        ctx.restore();
+    }
+
+    async function loop() {
+        if(video.readyState >= 2) await selfie.send({image: video});
+        else onResults({});
+        requestAnimationFrame(loop);
+    }
+
+    window.onkeydown = (e) => {
+        if(e.key === 'Enter') { fxActive = !fxActive; document.getElementById('toggleFX').innerText = fxActive ? "FX: ON" : "FX: OFF (ENTER)"; }
+        if(e.key.toLowerCase() === 'c') cam.visible = !cam.visible;
+    };
+
+    document.getElementById('loadBtn').onclick = async () => {
+        const s = await navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}});
+        video.srcObject = s; video.play(); loop();
+    };
+
+    document.getElementById('toggleAI').onclick = () => { aiActive = !aiActive; document.getElementById('toggleAI').innerText = aiActive ? "AI: ON" : "AI: OFF"; };
+    document.getElementById('bgSource').onchange = (e) => { if(e.target.value==='photo') document.getElementById('fileInp').click(); };
+    document.getElementById('fileInp').onchange = (e) => { imgBg.src = URL.createObjectURL(e.target.files[0]); };
+    
+    document.getElementById('camSize').oninput = (e) => cam.s = e.target.value;
+    document.getElementById('fxPower').oninput = (e) => fx.p = e.target.value;
+    document.getElementById('fxSpeed').oninput = (e) => fx.spd = e.target.value;
+    document.getElementById('fxGlow').oninput = (e) => fx.glow = e.target.value;
+</script>
+</body>
+</html>
