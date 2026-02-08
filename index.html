@@ -2,20 +2,19 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Shatter Studio V20 - FIX</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+    <title>Shatter Stable V21</title>
     <style>
         :root { --accent: #00d4ff; --bg: #0a0a0a; --fx: #ff0050; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 300px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .sidebar { width: 280px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
         .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; position: relative; }
-        #container { height: 90vh; aspect-ratio: 9/16; position: relative; border: 2px solid #444; z-index: 5; overflow: hidden; }
+        #container { height: 90vh; aspect-ratio: 9/16; border: 2px solid #444; position: relative; overflow: hidden; }
         canvas { width: 100%; height: 100%; }
         .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
         h3 { font-size: 11px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; }
-        button { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
+        button { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
         .btn-active { background: #2ed573 !important; color: black; }
-        input[type="range"] { width: 100%; margin: 8px 0; }
+        input[type="range"] { width: 100%; margin: 10px 0; }
         label { font-size: 10px; color: #888; display: block; }
         #flash { position: absolute; inset: 0; background: white; opacity: 0; pointer-events: none; z-index: 10; }
     </style>
@@ -26,29 +25,33 @@
 
 <div class="sidebar">
     <div class="card">
-        <h3>1. ACTIVARE SURSE</h3>
-        <button id="btnCam" onclick="startVideo()">1. PORNEȘTE CAMERA</button>
-        <button id="btnAudio" onclick="initAudio()">2. ACTIVARE ANALIZOR AUDIO</button>
-        <button id="btnDesk" onclick="addDesktopAudio()">+ ADAUGĂ SUNET SISTEM</button>
-        <button id="btnMic" onclick="addMic()">+ ADAUGĂ MICROFON</button>
-        <button onclick="aiActive=!aiActive" style="border-color:var(--accent)">AI CUT-OUT ON/OFF</button>
+        <h3>1. PORNIRE RAPIDĂ</h3>
+        <button id="btnStart" onclick="startAll()">START CAMERĂ & AUDIO</button>
+        <p style="font-size: 9px; color: #666;">*Se activează microfonul automat pentru puls.</p>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx);">
-        <h3>2. CONFIGURARE SHOW</h3>
-        <label>Sensibilitate Sunet</label>
+        <h3>2. CONTROL EFECTE</h3>
+        <label>Sensibilitate Microfon</label>
         <input type="range" id="sens" min="0" max="300" value="150">
-        <label>Putere Spargere (Shatter)</label>
+        
+        <label>Putere Shatter (Spargere)</label>
         <input type="range" id="pwr" min="0" max="500" value="200">
-        <label>Nr. Fragmente</label>
-        <input type="range" id="shards" min="1" max="20" value="10">
-        <label>Glow / Contur</label>
+        
+        <label>Număr Fragmente</label>
+        <input type="range" id="shards" min="1" max="15" value="8">
+        
+        <label>Glow / Contur Alb</label>
         <input type="range" id="glow" min="0" max="100" value="30">
+        
         <label>Screen Flash (Bass)</label>
         <input type="range" id="flashPwr" min="0" max="100" value="0">
-        <button onclick="resetFX()" style="background:#444; font-size:9px;">RESET LA ZERO</button>
+        
+        <button onclick="resetFX()" style="background:#444; font-size:9px; margin-top:10px;">RESET TOTAL</button>
     </div>
-    <div style="font-size:9px; color:#444; text-align:center">ENTER = Activare Manuală FX</div>
+    <div style="font-size: 10px; color: #ff0050; text-align: center; margin-top: 20px;">
+        APASĂ <b>ENTER</b> PENTRU TEST MANUAL
+    </div>
 </div>
 
 <div class="main">
@@ -65,58 +68,46 @@
     const ctx = canvas.getContext('2d');
     const flash = document.getElementById('flash');
     
-    let aiActive = false, fxManual = false;
+    let fxManual = false;
     let audioCtx, analyser, dataArray;
     const W = 1080, H = 1920;
 
-    const selfie = new SelfieSegmentation({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`});
-    selfie.setOptions({ modelSelection: 1 });
-    selfie.onResults(draw);
-
-    // 1. Pornire Camera (Simplu, fara audio initial ca sa nu dea block)
-    async function startVideo() {
+    // Funcția principală care pornește totul deodată
+    async function startAll() {
         try {
-            const s = await navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}});
-            v.srcObject = s;
-            document.getElementById('btnCam').classList.add('btn-active');
-            setInterval(() => { if(v.readyState >= 2) selfie.send({image: v}); }, 40);
-        } catch(e) { alert("Eroare camera: " + e); }
-    }
+            // Start Video
+            const videoStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720 } 
+            });
+            v.srcObject = videoStream;
 
-    // 2. Initializare Context Audio (Trebuie pornita manual de utilizator)
-    function initAudio() {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-        document.getElementById('btnAudio').classList.add('btn-active');
-    }
+            // Start Audio
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            audioCtx.createMediaStreamSource(audioStream).connect(analyser);
 
-    // 3. Adaugare Microfon
-    async function addMic() {
-        if(!audioCtx) return alert("Porneste intai Analizorul (Pasul 2)!");
-        const s = await navigator.mediaDevices.getUserMedia({audio: true});
-        audioCtx.createMediaStreamSource(s).connect(analyser);
-        document.getElementById('btnMic').classList.add('btn-active');
-    }
-
-    // 4. Adaugare Desktop Audio (Muzica din laptop)
-    async function addDesktopAudio() {
-        if(!audioCtx) return alert("Porneste intai Analizorul (Pasul 2)!");
-        try {
-            const s = await navigator.mediaDevices.getDisplayMedia({video: true, audio: true});
-            audioCtx.createMediaStreamSource(s).connect(analyser);
-            document.getElementById('btnDesk').classList.add('btn-active');
-        } catch(e) { console.log("User cancelled share"); }
+            document.getElementById('btnStart').classList.add('btn-active');
+            document.getElementById('btnStart').innerText = "SISTEM ACTIV";
+            
+            requestAnimationFrame(update);
+        } catch(e) {
+            alert("Te rugăm să permiți accesul la cameră și microfon!");
+            console.error(e);
+        }
     }
 
     function resetFX() {
         ['sens','pwr','shards','glow','flashPwr'].forEach(id => document.getElementById(id).value = 0);
     }
 
-    function draw(res) {
+    function update() {
         canvas.width = W; canvas.height = H;
-        ctx.fillStyle = "#00ff00"; // Fundal Verde
+        
+        // Fundal Negru pentru performanță (sau poți pune #00ff00 pentru chroma)
+        ctx.fillStyle = "#000"; 
         ctx.fillRect(0, 0, W, H);
 
         let vol = 0;
@@ -132,40 +123,39 @@
         const flsh = document.getElementById('flashPwr').value;
 
         // Flash Effect
-        if(vol * sns > 80) flash.style.opacity = flsh / 100;
+        if(vol * sns > 85) flash.style.opacity = flsh / 100;
         else flash.style.opacity = 0;
 
-        let w = W * 0.9, h = (v.videoHeight / v.videoWidth) * w;
-        let x = (W-w)/2, y = (H-h)/2;
+        // Calcul dimensiuni cameră (central)
+        let w = W * 0.9;
+        let h = (v.videoHeight / v.videoWidth) * w || W * 1.6;
+        let x = (W - w) / 2;
+        let y = (H - h) / 2;
 
         const isActive = fxManual || (vol * sns > 25);
 
-        if(isActive) {
-            for(let i=0; i<shd; i++) {
+        // Randare Fragmente (Shatter)
+        if(isActive && v.readyState >= 2) {
+            for(let i = 0; i < shd; i++) {
                 ctx.save();
-                ctx.globalAlpha = 0.15;
-                const tx = Math.sin(Date.now()*0.01 + i) * p;
-                render(res, x + tx, y, w, h, glw/2);
+                ctx.globalAlpha = 0.2;
+                const tx = Math.sin(Date.now() * 0.01 + i) * p;
+                
+                if(glw > 0) { ctx.shadowBlur = glw / 2; ctx.shadowColor = "white"; }
+                ctx.drawImage(v, x + tx, y, w, h);
                 ctx.restore();
             }
         }
-        render(res, x, y, w, h, isActive ? glw : 0);
-    }
 
-    function render(res, x, y, w, h, g) {
-        ctx.save();
-        if(g > 0) { ctx.shadowBlur = g; ctx.shadowColor = "white"; }
-        if(aiActive && res.segmentationMask) {
-            const t = document.createElement('canvas'); t.width = W; t.height = H;
-            const tc = t.getContext('2d');
-            tc.drawImage(res.image, x, y, w, h);
-            tc.globalCompositeOperation = 'destination-in';
-            tc.drawImage(res.segmentationMask, x, y, w, h);
-            ctx.drawImage(t, 0, 0);
-        } else if(v.readyState >= 2) {
+        // Randare Cameră Principală
+        if(v.readyState >= 2) {
+            ctx.save();
+            if(isActive && glw > 0) { ctx.shadowBlur = glw; ctx.shadowColor = "white"; }
             ctx.drawImage(v, x, y, w, h);
+            ctx.restore();
         }
-        ctx.restore();
+
+        requestAnimationFrame(update);
     }
 
     window.onkeydown = (e) => { if(e.key === 'Enter') fxManual = !fxManual; };
