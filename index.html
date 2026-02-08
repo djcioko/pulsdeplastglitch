@@ -2,45 +2,47 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Puls-Deplasat V23 - Camera FIX</title>
+    <title>Shatter Lightning PRO V24</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #050505; --fx: #ff0050; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 280px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 10; }
+        .sidebar { width: 300px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 20; }
         .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; }
-        #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #111; }
-        canvas { width: 100%; height: 100%; background: #000; }
+        #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #000; overflow: hidden; }
+        canvas { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
-        button { width: 100%; padding: 12px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
-        .btn-start { background: #2ed573; color: #000; }
+        h3 { font-size: 10px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+        button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; transition: 0.3s; }
+        .btn-cam { background: #2ed573; color: #000; }
         .btn-audio { background: #00d4ff; color: #000; }
         label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
-        input[type="range"] { width: 100%; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
     <div class="card">
-        <h3>1. ACTIVARE</h3>
-        <button class="btn-start" onclick="startCamera()">PAS 1: START CAMERĂ</button>
+        <h3>1. ACTIVARE LIVE</h3>
+        <button class="btn-cam" onclick="startCamera()">PAS 1: START CAMERĂ</button>
         <button class="btn-audio" onclick="initAudio()">PAS 2: START AUDIO</button>
         <button onclick="aiActive=!aiActive" style="background:#444; color:white;">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx)">
-        <h3>2. EFECTE (ENTER)</h3>
-        <label>Sensibilitate Sound</label>
-        <input type="range" id="audioSens" min="0" max="300" value="150">
-        <label>Putere Spargere</label>
-        <input type="range" id="fxPwr" min="0" max="400" value="150">
-        <label>Glow / Contur</label>
-        <input type="range" id="fxGlow" min="0" max="100" value="30">
-        <label>Lățime VU-Metru</label>
-        <input type="range" id="vuWidth" min="0" max="50" value="15">
-        <button onclick="resetFX()" style="background:#333; color:#888; font-size:9px;">RESET</button>
+        <h3>2. EFECTE DINAMICE (ENTER)</h3>
+        <label>Sensibilitate Audio (Fulger)</label>
+        <input type="range" id="audioSens" min="0" max="300" value="160">
+        <label>Intensitate Shatter</label>
+        <input type="range" id="fxPwr" min="0" max="500" value="250">
+        <label>Linii Fulger / Lățime</label>
+        <input type="range" id="lightning" min="0" max="100" value="50">
+        <label>Glow / Aura</label>
+        <input type="range" id="fxGlow" min="0" max="100" value="40">
+        <button onclick="resetFX()" style="background:#333; color:#aaa; font-size:9px; margin-top:10px;">RESET SETĂRI</button>
     </div>
+    <div style="font-size:9px; color:#444; text-align:center">V24: LAYERS INVERTED + LIGHTNING</div>
 </div>
 
 <div class="main">
@@ -68,12 +70,9 @@
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
             video.srcObject = stream;
-            video.onloadedmetadata = () => {
-                video.play();
-                loop(); // Pornim bucla de randare imediat
-            };
-            document.querySelector('.btn-start').innerText = "CAMERA OK";
-        } catch(e) { alert("Eroare Camera: " + e); }
+            video.onloadedmetadata = () => { video.play(); loop(); };
+            document.querySelector('.btn-cam').innerText = "CAMERA OK";
+        } catch(e) { alert("Acces refuzat la cameră!"); }
     }
 
     async function initAudio() {
@@ -83,26 +82,22 @@
         analyser.fftSize = 128;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         audioCtx.createMediaStreamSource(stream).connect(analyser);
-        document.querySelector('.btn-audio').innerText = "AUDIO OK";
+        document.querySelector('.btn-audio').innerText = "AUDIO ACTIV";
     }
 
     function loop() {
-        if (aiActive) {
-            selfie.send({image: video});
-        } else {
-            draw({}); // Randare normală dacă AI e oprit
-        }
+        if (aiActive) { selfie.send({image: video}); } 
+        else { draw({}); }
         requestAnimationFrame(loop);
     }
 
     function resetFX() {
-        ['audioSens','fxPwr','fxGlow','vuWidth'].forEach(id => document.getElementById(id).value = 0);
+        ['audioSens','fxPwr','fxGlow','lightning'].forEach(id => document.getElementById(id).value = 0);
     }
 
     function draw(res) {
         canvas.width = W; canvas.height = H;
-        ctx.fillStyle = "#000"; // Negru
-        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
 
         let vol = 0;
         if (analyser) {
@@ -110,33 +105,65 @@
             vol = dataArray.reduce((a, b) => a + b) / dataArray.length;
         }
 
-        const sens = document.getElementById('audioSens').value / 100;
-        const pwr = document.getElementById('fxPwr').value * (vol/128) * sens;
-        const glow = document.getElementById('fxGlow').value;
-        const vu = document.getElementById('vuWidth').value;
+        const sns = document.getElementById('audioSens').value / 100;
+        const pwr = document.getElementById('fxPwr').value * (vol/128) * sns;
+        const glw = document.getElementById('fxGlow').value;
+        const lgt = document.getElementById('lightning').value;
 
         let w = W * 0.9, h = (video.videoHeight / video.videoWidth) * w || W * 1.77;
         let x = (W-w)/2, y = (H-h)/2;
 
-        const active = fxActive || (vol * sens > 25);
+        const active = fxActive || (vol * sns > 30);
 
-        // Randare VU-Metru
-        if(vol > 5) {
-            ctx.strokeStyle = `hsl(${vol*2}, 100%, 50%)`;
-            ctx.lineWidth = (vol/10) * (vu/5);
-            ctx.strokeRect(x-10, y-10, w+20, h+20);
-        }
-
-        // Randare Camera
+        // --- STRAT 1: CAMERA FIXĂ (JOS) ---
         ctx.save();
+        renderMain(res, x, y, w, h);
+        ctx.restore();
+
+        // --- STRAT 2: EFECT SHATTER / SPARGERE (DEASUPRA) ---
         if(active) {
-            ctx.shadowBlur = glow; ctx.shadowColor = "white";
-            // Efect Shatter (dublură)
-            ctx.globalAlpha = 0.3;
-            ctx.drawImage(video, x + Math.sin(Date.now()*0.01)*pwr, y, w, h);
-            ctx.globalAlpha = 1;
+            ctx.save();
+            ctx.globalCompositeOperation = "screen"; // Face fragmentele să lumineze peste imagine
+            for(let i=0; i<8; i++) {
+                ctx.save();
+                ctx.globalAlpha = 0.25;
+                const tx = Math.sin(Date.now()*0.01 + i) * pwr;
+                const ty = Math.cos(Date.now()*0.01 + i) * (pwr/2);
+                if(glw > 0) { ctx.shadowBlur = glw; ctx.shadowColor = "white"; }
+                ctx.drawImage(video, x + tx, y + ty, w, h);
+                ctx.restore();
+            }
+            ctx.restore();
         }
 
+        // --- STRAT 3: FULGERE / LIGHTNING (DIN COLȚURI) ---
+        if(vol * sns > 50 && lgt > 0) {
+            ctx.save();
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = lgt / 10;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = varColor(vol);
+            
+            const corners = [[0,0], [W,0], [0,H], [W,H]];
+            corners.forEach(c => {
+                ctx.beginPath();
+                ctx.moveTo(c[0], c[1]);
+                // Linii frânte spre centru
+                let curX = c[0], curY = c[1];
+                for(let j=0; j<4; j++) {
+                    curX += (W/2 - curX) * 0.3 + (Math.random()-0.5)*100;
+                    curY += (H/2 - curY) * 0.3 + (Math.random()-0.5)*100;
+                    ctx.lineTo(curX, curY);
+                }
+                ctx.stroke();
+            });
+            ctx.restore();
+        }
+    }
+
+    function varColor(v) { return `hsl(${200 + v}, 100%, 70%)`; }
+
+    function renderMain(res, x, y, w, h) {
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
             const tc = t.getContext('2d');
@@ -147,7 +174,6 @@
         } else {
             ctx.drawImage(video, x, y, w, h);
         }
-        ctx.restore();
     }
 
     window.onkeydown = (e) => { if(e.key === 'Enter') fxActive = !fxActive; };
