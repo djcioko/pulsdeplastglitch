@@ -2,21 +2,22 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Shatter RGB Memory V25</title>
+    <title>Shatter Hybrid V26 - Memory & Puls</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #050505; --fx: #ff0050; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 300px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 20; }
+        .sidebar { width: 320px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 20; }
         .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; }
         #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #000; }
         canvas { width: 100%; height: 100%; position: absolute; }
-        .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
+        .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; margin-bottom: 5px; }
         h3 { font-size: 10px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; }
         button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
         .btn-cam { background: #2ed573; } .btn-audio { background: #00d4ff; }
+        .btn-fx-toggle { background: var(--fx); color: white; text-transform: uppercase; font-size: 11px; }
         label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
-        input[type="range"] { width: 100%; }
+        input[type="range"], select { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -24,24 +25,40 @@
 <div class="sidebar">
     <div class="card">
         <h3>1. ACTIVARE</h3>
-        <button class="btn-cam" onclick="startCamera()">START CAMERĂ</button>
-        <button class="btn-audio" onclick="initAudio()">START AUDIO</button>
-        <button onclick="toggleAI()" id="aiStatus" style="background:#444; color:white;">AI CUT-OUT: OFF</button>
+        <button class="btn-cam" onclick="startCamera()">CAMERA OK</button>
+        <button class="btn-audio" onclick="initAudio()">AUDIO OK</button>
+        <button onclick="toggleAI()" id="aiBtn">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx)">
-        <h3>2. FX (MEMORATE)</h3>
-        <label>Sensibilitate Sound</label>
-        <input type="range" id="audioSens" min="0" max="300" value="150" oninput="saveSet()">
-        <label>Putere Shatter</label>
-        <input type="range" id="fxPwr" min="0" max="500" value="200" oninput="saveSet()">
-        <label>Nr. Fragmente</label>
+        <h3>2. PULS & DEPLASARE (ENTER)</h3>
+        <button class="btn-fx-toggle" id="fxStatus" onclick="fxActive=!fxActive">FX: OFF (ENTER)</button>
+        
+        <label>Marime Puls</label>
+        <input type="range" id="pulsSize" min="0" max="100" value="30" oninput="saveSet()">
+        
+        <label>Intensitate Drift (Deplasare)</label>
+        <input type="range" id="driftInt" min="0" max="200" value="50" oninput="saveSet()">
+        
+        <label>Viteza Puls / Miscare</label>
+        <input type="range" id="pulsSpeed" min="1" max="50" value="15" oninput="saveSet()">
+
+        <label>Nr. Fragmente Shatter</label>
         <input type="range" id="shards" min="1" max="20" value="8" oninput="saveSet()">
-        <label>Intensitate RGB Glow</label>
-        <input type="range" id="fxGlow" min="0" max="100" value="40" oninput="saveSet()">
-        <label>Fulgere Margine</label>
-        <input type="range" id="lightning" min="0" max="100" value="50" oninput="saveSet()">
-        <button onclick="localStorage.clear(); location.reload();" style="background:#333; color:#ff4757; font-size:9px;">ȘTERGE MEMORIA</button>
+
+        <label>Fulgere Margine & RGB</label>
+        <input type="range" id="lightning" min="0" max="100" value="40" oninput="saveSet()">
+    </div>
+
+    <div class="card">
+        <h3>3. FUNDAL CHROMA</h3>
+        <select id="chromaColor" onchange="saveSet()">
+            <option value="#00ff00">Verde (Chroma)</option>
+            <option value="#0000ff">Albastru</option>
+            <option value="#000000">Negru</option>
+            <option value="#ffffff">Alb</option>
+        </select>
+        <button onclick="localStorage.clear(); location.reload();" style="background:#333; color:#ff4757; font-size:9px; margin-top:10px;">RESET MEMORIE</button>
     </div>
 </div>
 
@@ -63,36 +80,38 @@
     selfie.setOptions({ modelSelection: 1 });
     selfie.onResults(draw);
 
-    // Încărcare setări salvate
+    // Încarcă setările memorate la pornire
     window.onload = () => {
-        const s = JSON.parse(localStorage.getItem('fx_settings') || '{}');
-        for(let key in s) if(document.getElementById(key)) document.getElementById(key).value = s[key];
+        const saved = JSON.parse(localStorage.getItem('fx_v26_prefs') || '{}');
+        for(let id in saved) {
+            const el = document.getElementById(id);
+            if(el) el.value = saved[id];
+        }
     };
 
     function saveSet() {
         const settings = {};
-        ['audioSens','fxPwr','shards','fxGlow','lightning'].forEach(id => settings[id] = document.getElementById(id).value);
-        localStorage.setItem('fx_settings', JSON.stringify(settings));
+        ['pulsSize','driftInt','pulsSpeed','shards','lightning','chromaColor'].forEach(id => {
+            settings[id] = document.getElementById(id).value;
+        });
+        localStorage.setItem('fx_v26_prefs', JSON.stringify(settings));
     }
 
     async function startCamera() {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-        video.srcObject = stream;
+        const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        video.srcObject = s;
         video.onloadedmetadata = () => { video.play(); loop(); };
     }
 
     async function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
         analyser = audioCtx.createAnalyser(); analyser.fftSize = 128;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
-        audioCtx.createMediaStreamSource(stream).connect(analyser);
+        audioCtx.createMediaStreamSource(s).connect(analyser);
     }
 
-    function toggleAI() {
-        aiActive = !aiActive;
-        document.getElementById('aiStatus').style.background = aiActive ? "#ff0050" : "#444";
-    }
+    function toggleAI() { aiActive = !aiActive; }
 
     function loop() {
         if (aiActive && video.readyState >= 2) { selfie.send({image: video}); } 
@@ -102,8 +121,11 @@
 
     function draw(res) {
         canvas.width = W; canvas.height = H;
-        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
-        hue = (hue + 2) % 360;
+        ctx.fillStyle = document.getElementById('chromaColor').value;
+        ctx.fillRect(0, 0, W, H);
+        
+        hue = (hue + 1) % 360;
+        document.getElementById('fxStatus').innerText = fxActive ? "FX: ON (ENTER)" : "FX: OFF (ENTER)";
 
         let vol = 0;
         if (analyser) {
@@ -111,64 +133,71 @@
             vol = dataArray.reduce((a,b) => a+b) / dataArray.length;
         }
 
-        const sns = document.getElementById('audioSens').value / 100;
-        const pwr = document.getElementById('fxPwr').value * (vol/128) * sns;
-        const glw = document.getElementById('fxGlow').value;
+        // Parametrii din UI
+        const pSize = document.getElementById('pulsSize').value / 10;
+        const dInt = document.getElementById('driftInt').value;
+        const spd = document.getElementById('pulsSpeed').value / 1000;
         const lgt = document.getElementById('lightning').value;
         const shd = document.getElementById('shards').value;
 
-        let w = W * 0.9, h = (video.videoHeight / video.videoWidth) * w || W * 1.77;
-        let x = (W-w)/2, y = (H-h)/2;
-        const isFX = fxActive || (vol * sns > 30);
+        const time = Date.now() * spd;
+        
+        // Calcul transformări (Puls & Drift)
+        let puls = fxActive ? (Math.sin(time) * pSize * 10) : 0;
+        let driftX = fxActive ? (Math.cos(time * 0.7) * dInt) : 0;
 
-        // 1. Camera Fixă (Fundal)
+        let w = (W * 0.9) + puls, h = ((video.videoHeight / video.videoWidth) * w) + puls;
+        let x = (W-w)/2 + driftX, y = (H-h)/2;
+
+        // 1. Randare Strat de Bază
         ctx.save();
-        renderMain(res, x, y, w, h);
+        renderLayer(res, x, y, w, h, 1);
         ctx.restore();
 
-        if(isFX) {
-            // 2. Shatter RGB (Deasupra)
+        // 2. Randare Strat Shatter (Pulsatoriu)
+        if(fxActive) {
             ctx.save();
             ctx.globalCompositeOperation = "screen";
             for(let i=0; i<shd; i++) {
                 ctx.save();
-                ctx.globalAlpha = 0.2;
-                const tx = Math.sin(Date.now()*0.01 + i) * (fxActive ? pwr || 100 : pwr);
-                if(glw > 0) { ctx.shadowBlur = glw; ctx.shadowColor = `hsl(${hue}, 100%, 50%)`; }
-                ctx.drawImage(video, x + tx, y, w, h);
+                ctx.globalAlpha = 0.15;
+                const off = Math.sin(time + i) * (vol + dInt/2);
+                ctx.shadowBlur = 15; ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+                ctx.drawImage(video, x + off, y, w, h);
                 ctx.restore();
             }
             ctx.restore();
 
-            // 3. Fulgere pe Margini
+            // 3. Fulgere pe Marginea Dreptunghiului
             if(lgt > 0) {
-                ctx.save();
-                ctx.strokeStyle = `hsl(${hue}, 100%, 70%)`;
-                ctx.lineWidth = lgt / 10;
-                ctx.shadowBlur = 15; ctx.shadowColor = ctx.strokeStyle;
-                
-                // Desenăm linii frânte doar pe perimetrul camerei
-                ctx.beginPath();
-                let points = [[x,y], [x+w,y], [x+w,y+h], [x,y+h], [x,y]];
-                points.forEach((p, i) => {
-                    if(i===0) ctx.moveTo(p[0], p[1]);
-                    else {
-                        // Creăm efectul de zig-zag între colțuri
-                        let steps = 5;
-                        for(let s=1; s<=steps; s++) {
-                            let px = points[i-1][0] + (p[0]-points[i-1][0]) * (s/steps) + (Math.random()-0.5)*30;
-                            let py = points[i-1][1] + (p[1]-points[i-1][1]) * (s/steps) + (Math.random()-0.5)*30;
-                            ctx.lineTo(px, py);
-                        }
-                    }
-                });
-                ctx.stroke();
-                ctx.restore();
+                drawLightning(x, y, w, h, lgt);
             }
         }
     }
 
-    function renderMain(res, x, y, w, h) {
+    function drawLightning(x, y, w, h, power) {
+        ctx.save();
+        ctx.strokeStyle = `hsl(${hue}, 100%, 75%)`;
+        ctx.lineWidth = power / 15;
+        ctx.shadowBlur = 10; ctx.shadowColor = ctx.strokeStyle;
+        ctx.beginPath();
+        let pts = [[x,y], [x+w,y], [x+w,y+h], [x,y+h], [x,y]];
+        pts.forEach((p, i) => {
+            if(i===0) ctx.moveTo(p[0], p[1]);
+            else {
+                for(let s=1; s<=4; s++) {
+                    let px = pts[i-1][0] + (p[0]-pts[i-1][0]) * (s/4) + (Math.random()-0.5)*25;
+                    let py = pts[i-1][1] + (p[1]-pts[i-1][1]) * (s/4) + (Math.random()-0.5)*25;
+                    ctx.lineTo(px, py);
+                }
+            }
+        });
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function renderLayer(res, x, y, w, h, alpha) {
+        ctx.globalAlpha = alpha;
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
             const tc = t.getContext('2d');
