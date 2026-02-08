@@ -2,58 +2,53 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Shatter Ultra-Reactive V19</title>
+    <title>Shatter Studio V20 - FIX</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #0a0a0a; --fx: #ff0050; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 320px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 300px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
         .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; position: relative; }
-        #container { height: 90vh; aspect-ratio: 9/16; position: relative; border: 2px solid #444; z-index: 2; }
+        #container { height: 90vh; aspect-ratio: 9/16; position: relative; border: 2px solid #444; z-index: 5; overflow: hidden; }
         canvas { width: 100%; height: 100%; }
-        .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; margin-bottom: 10px; }
-        h3 { font-size: 11px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
-        input, button, select { width: 100%; background: #000; border: 1px solid #444; color: white; padding: 8px; border-radius: 4px; font-size: 11px; margin-bottom: 5px; }
-        .btn-on { background: #2ed573 !important; color: #000; font-weight: bold; }
-        .btn-off { background: #ff4757 !important; color: white; }
-        label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
-        .flash-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; z-index: 1; }
+        .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; }
+        h3 { font-size: 11px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; }
+        button { width: 100%; background: #333; border: 1px solid #444; color: white; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
+        .btn-active { background: #2ed573 !important; color: black; }
+        input[type="range"] { width: 100%; margin: 8px 0; }
+        label { font-size: 10px; color: #888; display: block; }
+        #flash { position: absolute; inset: 0; background: white; opacity: 0; pointer-events: none; z-index: 10; }
     </style>
 </head>
 <body>
 
-<div id="flash" class="flash-layer"></div>
+<div id="flash"></div>
 
 <div class="sidebar">
     <div class="card">
-        <h3>1. Surse Intrare</h3>
-        <button onclick="startCamera()" id="camBtn">START CAMERĂ</button>
-        <button onclick="toggleDesktopAudio()" id="deskBtn">AUDIO SISTEM: OFF</button>
-        <button onclick="toggleMic()" id="micBtn">MICROFON: OFF</button>
-        <button onclick="aiActive=!aiActive">AI CUT-OUT: ON/OFF</button>
+        <h3>1. ACTIVARE SURSE</h3>
+        <button id="btnCam" onclick="startVideo()">1. PORNEȘTE CAMERA</button>
+        <button id="btnAudio" onclick="initAudio()">2. ACTIVARE ANALIZOR AUDIO</button>
+        <button id="btnDesk" onclick="addDesktopAudio()">+ ADAUGĂ SUNET SISTEM</button>
+        <button id="btnMic" onclick="addMic()">+ ADAUGĂ MICROFON</button>
+        <button onclick="aiActive=!aiActive" style="border-color:var(--accent)">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx);">
-        <h3>2. FX Shatter & Glitch</h3>
-        <label>Sensibilitate Sound</label>
-        <input type="range" id="audioSens" min="0" max="300" value="150">
-        
-        <label>Putere Spargere</label>
-        <input type="range" id="shatterPower" min="0" max="500" value="200">
-        
+        <h3>2. CONFIGURARE SHOW</h3>
+        <label>Sensibilitate Sunet</label>
+        <input type="range" id="sens" min="0" max="300" value="150">
+        <label>Putere Spargere (Shatter)</label>
+        <input type="range" id="pwr" min="0" max="500" value="200">
         <label>Nr. Fragmente</label>
-        <input type="range" id="shards" min="1" max="25" value="10">
-        
-        <label>Linii Glitch (Contur)</label>
-        <input type="range" id="edge" min="0" max="100" value="40">
-
+        <input type="range" id="shards" min="1" max="20" value="10">
+        <label>Glow / Contur</label>
+        <input type="range" id="glow" min="0" max="100" value="30">
         <label>Screen Flash (Bass)</label>
         <input type="range" id="flashPwr" min="0" max="100" value="0">
-        
-        <button style="background:#555" onclick="resetAll()">RESET TOTAL (ZERO)</button>
+        <button onclick="resetFX()" style="background:#444; font-size:9px;">RESET LA ZERO</button>
     </div>
-    
-    <div style="font-size:9px; color:#444">Apasă ENTER pentru activare manuală FX</div>
+    <div style="font-size:9px; color:#444; text-align:center">ENTER = Activare Manuală FX</div>
 </div>
 
 <div class="main">
@@ -62,69 +57,67 @@
     </div>
 </div>
 
-<video id="vid" autoplay muted playsinline style="display:none"></video>
+<video id="v" autoplay muted playsinline style="display:none"></video>
 
 <script>
-    const video = document.getElementById('vid');
+    const v = document.getElementById('v');
     const canvas = document.getElementById('out');
     const ctx = canvas.getContext('2d');
-    const flashEl = document.getElementById('flash');
+    const flash = document.getElementById('flash');
     
     let aiActive = false, fxManual = false;
     let audioCtx, analyser, dataArray;
-    let micStream, deskStream;
     const W = 1080, H = 1920;
 
     const selfie = new SelfieSegmentation({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`});
     selfie.setOptions({ modelSelection: 1 });
     selfie.onResults(draw);
 
-    async function startCamera() {
-        const s = await navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}});
-        video.srcObject = s;
-        document.getElementById('camBtn').classList.add('btn-on');
-        if(!audioCtx) setupAudio();
-        setInterval(() => { if(video.readyState >= 2) selfie.send({image: video}); }, 40);
+    // 1. Pornire Camera (Simplu, fara audio initial ca sa nu dea block)
+    async function startVideo() {
+        try {
+            const s = await navigator.mediaDevices.getUserMedia({video: {width: 1280, height: 720}});
+            v.srcObject = s;
+            document.getElementById('btnCam').classList.add('btn-active');
+            setInterval(() => { if(v.readyState >= 2) selfie.send({image: v}); }, 40);
+        } catch(e) { alert("Eroare camera: " + e); }
     }
 
-    function setupAudio() {
+    // 2. Initializare Context Audio (Trebuie pornita manual de utilizator)
+    function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 256;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
+        document.getElementById('btnAudio').classList.add('btn-active');
     }
 
-    async function toggleMic() {
-        if(!micStream) {
-            micStream = await navigator.mediaDevices.getUserMedia({audio: true});
-            const s = audioCtx.createMediaStreamSource(micStream);
-            s.connect(analyser);
-            document.getElementById('micBtn').className = 'btn-on';
-            document.getElementById('micBtn').innerText = 'MICROFON: ACTIV';
-        } else {
-            micStream.getAudioTracks()[0].enabled = !micStream.getAudioTracks()[0].enabled;
-            document.getElementById('micBtn').className = micStream.getAudioTracks()[0].enabled ? 'btn-on' : 'btn-off';
-        }
+    // 3. Adaugare Microfon
+    async function addMic() {
+        if(!audioCtx) return alert("Porneste intai Analizorul (Pasul 2)!");
+        const s = await navigator.mediaDevices.getUserMedia({audio: true});
+        audioCtx.createMediaStreamSource(s).connect(analyser);
+        document.getElementById('btnMic').classList.add('btn-active');
     }
 
-    async function toggleDesktopAudio() {
+    // 4. Adaugare Desktop Audio (Muzica din laptop)
+    async function addDesktopAudio() {
+        if(!audioCtx) return alert("Porneste intai Analizorul (Pasul 2)!");
         try {
-            deskStream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: true});
-            const s = audioCtx.createMediaStreamSource(deskStream);
-            s.connect(analyser);
-            document.getElementById('deskBtn').className = 'btn-on';
-            document.getElementById('deskBtn').innerText = 'AUDIO SISTEM: ACTIV';
-        } catch(e) { alert("Selectează 'Share Audio' când alegi fereastra!"); }
+            const s = await navigator.mediaDevices.getDisplayMedia({video: true, audio: true});
+            audioCtx.createMediaStreamSource(s).connect(analyser);
+            document.getElementById('btnDesk').classList.add('btn-active');
+        } catch(e) { console.log("User cancelled share"); }
     }
 
-    function resetAll() {
-        const ids = ['audioSens','shatterPower','shards','edge','flashPwr'];
-        ids.forEach(id => document.getElementById(id).value = 0);
+    function resetFX() {
+        ['sens','pwr','shards','glow','flashPwr'].forEach(id => document.getElementById(id).value = 0);
     }
 
     function draw(res) {
         canvas.width = W; canvas.height = H;
-        ctx.fillStyle = "#00ff00"; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#00ff00"; // Fundal Verde
+        ctx.fillRect(0, 0, W, H);
 
         let vol = 0;
         if(analyser) {
@@ -132,34 +125,36 @@
             vol = dataArray.reduce((a,b) => a+b) / dataArray.length;
         }
 
-        const sens = document.getElementById('audioSens').value / 100;
-        const pwr = document.getElementById('shatterPower').value * (vol/128) * sens;
+        const sns = document.getElementById('sens').value / 100;
+        const p = document.getElementById('pwr').value * (vol/128) * sns;
         const shd = document.getElementById('shards').value;
-        const edg = document.getElementById('edge').value;
+        const glw = document.getElementById('glow').value;
         const flsh = document.getElementById('flashPwr').value;
 
-        // Screen Flash logic
-        if(vol * sens > 70) flashEl.style.opacity = flsh / 100;
-        else flashEl.style.opacity = 0;
+        // Flash Effect
+        if(vol * sns > 80) flash.style.opacity = flsh / 100;
+        else flash.style.opacity = 0;
 
-        let w = W * 0.9, h = (video.videoHeight / video.videoWidth) * w;
+        let w = W * 0.9, h = (v.videoHeight / v.videoWidth) * w;
         let x = (W-w)/2, y = (H-h)/2;
 
-        if(fxManual || vol * sens > 20) {
+        const isActive = fxManual || (vol * sns > 25);
+
+        if(isActive) {
             for(let i=0; i<shd; i++) {
                 ctx.save();
                 ctx.globalAlpha = 0.15;
-                const tx = Math.sin(Date.now()*0.01 + i) * pwr;
-                render(res, x + tx, y, w, h, edg/2);
+                const tx = Math.sin(Date.now()*0.01 + i) * p;
+                render(res, x + tx, y, w, h, glw/2);
                 ctx.restore();
             }
         }
-        render(res, x, y, w, h, (fxManual || vol*sens > 20) ? edg : 0);
+        render(res, x, y, w, h, isActive ? glw : 0);
     }
 
-    function render(res, x, y, w, h, glow) {
+    function render(res, x, y, w, h, g) {
         ctx.save();
-        if(glow > 0) { ctx.shadowBlur = glow; ctx.shadowColor = "white"; }
+        if(g > 0) { ctx.shadowBlur = g; ctx.shadowColor = "white"; }
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
             const tc = t.getContext('2d');
@@ -167,8 +162,8 @@
             tc.globalCompositeOperation = 'destination-in';
             tc.drawImage(res.segmentationMask, x, y, w, h);
             ctx.drawImage(t, 0, 0);
-        } else if(video.readyState >= 2) {
-            ctx.drawImage(video, x, y, w, h);
+        } else if(v.readyState >= 2) {
+            ctx.drawImage(v, x, y, w, h);
         }
         ctx.restore();
     }
