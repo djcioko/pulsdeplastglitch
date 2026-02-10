@@ -2,23 +2,22 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Bass Shake V30 - No White Flash</title>
+    <title>Hybrid Bass V31 - Complete FX</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #050505; --fx: #ff0050; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 320px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 20; }
+        .sidebar { width: 320px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; z-index: 20; }
         .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; }
         #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #000; overflow: hidden; }
         canvas { width: 100%; height: 100%; position: absolute; }
         .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; margin-bottom: 5px; }
-        h3 { font-size: 10px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; }
-        button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
-        .btn-audio { background: #00d4ff; color: black; }
+        h3 { font-size: 10px; margin: 0 0 8px; color: var(--accent); text-transform: uppercase; }
+        button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; transition: 0.3s; }
         label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
-        input[type="range"] { width: 100%; }
+        input[type="range"], select { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 4px; border-radius: 4px; }
         .vu-bass { height: 4px; background: #333; border-radius: 2px; margin-top: 5px; overflow: hidden; }
-        #vuFill { height: 100%; width: 0%; background: var(--fx); transition: width 0.1s; }
+        #vuFill { height: 100%; width: 0%; background: var(--fx); }
     </style>
 </head>
 <body>
@@ -27,26 +26,37 @@
     <div class="card">
         <h3>1. ACTIVARE</h3>
         <button onclick="startCamera()" style="background:#2ed573">CAMERA OK</button>
-        <button class="btn-audio" id="micBtn" onclick="initAudio()">START AUDIO (BASS DETECTION)</button>
-        <button onclick="aiActive=!aiActive">AI CUT-OUT ON/OFF</button>
+        <button id="micBtn" onclick="initAudio()" style="background:#00d4ff">START AUDIO</button>
+        <button onclick="aiActive=!aiActive" style="background:#444; color:white;">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx)">
-        <h3>2. BASS FX CONTROL</h3>
+        <h3>2. FX BASS & MISCARE (ENTER)</h3>
         <div class="vu-bass"><div id="vuFill"></div></div>
-        <label>Sensibilitate Bass (Prag)</label>
-        <input type="range" id="micSens" min="0" max="255" value="50" oninput="saveSet()">
+        <label>Sensibilitate Bass (Trigger)</label>
+        <input type="range" id="micSens" min="0" max="255" value="60" oninput="saveSet()">
         
-        <label>Intensitate Tremur (Shake)</label>
-        <input type="range" id="shakeInt" min="0" max="50" value="15" oninput="saveSet()">
+        <label>Intensitate Shake RGB</label>
+        <input type="range" id="shakeInt" min="0" max="100" value="20" oninput="saveSet()">
         
-        <label>Viteza Deplasare (ENTER)</label>
-        <input type="range" id="moveSpd" min="1" max="100" value="20" oninput="saveSet()">
+        <label>Marime Puls (Preset)</label>
+        <input type="range" id="pulsSize" min="0" max="150" value="40" oninput="saveSet()">
+
+        <label>Intensitate Drift (Deplasare)</label>
+        <input type="range" id="driftInt" min="0" max="300" value="70" oninput="saveSet()">
+        
+        <label>Viteza Miscare</label>
+        <input type="range" id="moveSpd" min="1" max="100" value="25" oninput="saveSet()">
     </div>
 
     <div class="card">
-        <h3>3. SISTEM</h3>
-        <button onclick="localStorage.clear(); location.reload();" style="font-size:9px;">RESET MEMORIE</button>
+        <h3>3. FUNDAL CHROMA</h3>
+        <select id="chromaColor" onchange="saveSet()">
+            <option value="#00ff00">Verde (Chroma)</option>
+            <option value="#000000">Negru</option>
+            <option value="#0000ff">Albastru</option>
+        </select>
+        <button onclick="localStorage.clear(); location.reload();" style="font-size:9px; margin-top:10px; background:#333; color:#aaa;">RESET SETĂRI</button>
     </div>
 </div>
 
@@ -60,7 +70,7 @@
     const video = document.getElementById('vid');
     const canvas = document.getElementById('out');
     const ctx = canvas.getContext('2d');
-    let aiActive = false, fxForced = false, micActive = false;
+    let aiActive = false, fxForced = false, micActive = false, hue = 0;
     let audioCtx, analyser, dataArray;
     const W = 1080, H = 1920;
 
@@ -69,14 +79,16 @@
     selfie.onResults(draw);
 
     window.onload = () => {
-        const saved = JSON.parse(localStorage.getItem('fx_v30_prefs') || '{}');
+        const saved = JSON.parse(localStorage.getItem('fx_v31_prefs') || '{}');
         for(let id in saved) { if(document.getElementById(id)) document.getElementById(id).value = saved[id]; }
     };
 
     function saveSet() {
         const settings = {};
-        ['micSens','shakeInt','moveSpd'].forEach(id => { settings[id] = document.getElementById(id).value; });
-        localStorage.setItem('fx_v30_prefs', JSON.stringify(settings));
+        ['micSens','shakeInt','pulsSize','driftInt','moveSpd','chromaColor'].forEach(id => {
+            settings[id] = document.getElementById(id).value;
+        });
+        localStorage.setItem('fx_v31_prefs', JSON.stringify(settings));
     }
 
     async function startCamera() {
@@ -87,12 +99,12 @@
     async function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 1024; // Rezoluție mai mare pentru frecvențe
+        analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         audioCtx.createMediaStreamSource(s).connect(analyser);
         micActive = true;
         document.getElementById('micBtn').style.background = "#2ed573";
+        document.getElementById('micBtn').innerText = "AUDIO OK";
     }
 
     function loop() {
@@ -103,55 +115,52 @@
 
     function draw(res) {
         canvas.width = W; canvas.height = H;
-        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = document.getElementById('chromaColor').value;
+        ctx.fillRect(0, 0, W, H);
+        hue = (hue + 1) % 360;
 
         let bassVal = 0;
         if (micActive && analyser) {
             analyser.getByteFrequencyData(dataArray);
-            // Calculăm media doar pentru primele 10 benzi (Bass: 20-150Hz)
-            for(let i=0; i<10; i++) { bassVal += dataArray[i]; }
+            for(let i=0; i<10; i++) bassVal += dataArray[i];
             bassVal /= 10;
         }
 
         const sens = document.getElementById('micSens').value;
         const sInt = document.getElementById('shakeInt').value;
+        const pSize = document.getElementById('pulsSize').value;
+        const dInt = document.getElementById('driftInt').value;
         const spd = document.getElementById('moveSpd').value / 1000;
         
-        // Vizualizare Bass în Sidebar
         document.getElementById('vuFill').style.width = (bassVal/2.5) + "%";
-
-        const isBassBeat = micActive && (bassVal > sens);
+        const isBass = micActive && (bassVal > sens);
         const time = Date.now() * spd;
 
-        let driftX = fxForced ? (Math.cos(time) * 50) : 0;
-        let w = W * 0.9, h = (video.videoHeight / video.videoWidth) * w || W * 1.77;
-        let x = (W-w)/2 + driftX, y = (H-h)/2;
+        // Calcul mișcare continuă (doar dacă e apăsat ENTER)
+        let puls = fxForced ? (Math.sin(time) * pSize) : 0;
+        let driftX = fxForced ? (Math.cos(time * 0.8) * dInt) : 0;
+        let driftY = fxForced ? (Math.sin(time * 0.5) * (dInt/2)) : 0;
+
+        let w = (W * 0.9) + puls, h = ((video.videoHeight / video.videoWidth) * w) + puls;
+        let x = (W-w)/2 + driftX, y = (H-h)/2 + driftY;
 
         ctx.save();
-        
-        if (isBassBeat) {
-            // EFECT BASS SHAKE (RGB SPLIT)
+        if (isBass) {
             let shift = (bassVal / 255) * sInt;
             ctx.globalCompositeOperation = "screen";
-            
-            // Strat Roșu (ușor stânga)
-            renderLayer(res, x + shift, y + (Math.random()-0.5)*shift, w, h, 0.8, "red");
-            // Strat Albastru (ușor dreapta)
-            renderLayer(res, x - shift, y + (Math.random()-0.5)*shift, w, h, 0.8, "blue");
+            renderLayer(res, x + shift, y, w, h, 0.7, "red");
+            renderLayer(res, x - shift, y, w, h, 0.7, "blue");
         } else {
             renderLayer(res, x, y, w, h, 1, "none");
         }
-
         ctx.restore();
     }
 
     function renderLayer(res, x, y, w, h, alpha, filterType) {
         ctx.save();
         ctx.globalAlpha = alpha;
-        
-        // Aplicăm un filtru colorat rapid doar pentru shake
-        if(filterType === "red") ctx.filter = "contrast(150%) sepia(100%) hue-rotate(-50deg) saturate(5)";
-        if(filterType === "blue") ctx.filter = "contrast(150%) sepia(100%) hue-rotate(180deg) saturate(5)";
+        if(filterType === "red") ctx.filter = "contrast(150%) hue-rotate(-50deg) saturate(3)";
+        if(filterType === "blue") ctx.filter = "contrast(150%) hue-rotate(180deg) saturate(3)";
 
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
