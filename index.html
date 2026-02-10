@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Shatter Hybrid V26 - Memory & Puls</title>
+    <title>Shatter Pro V27 - Independent FX</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #050505; --fx: #ff0050; }
@@ -16,6 +16,7 @@
         button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
         .btn-cam { background: #2ed573; } .btn-audio { background: #00d4ff; }
         .btn-fx-toggle { background: var(--fx); color: white; text-transform: uppercase; font-size: 11px; }
+        .fx-on { background: #2ed573 !important; color: black; }
         label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
         input[type="range"], select { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; }
     </style>
@@ -27,38 +28,37 @@
         <h3>1. ACTIVARE</h3>
         <button class="btn-cam" onclick="startCamera()">CAMERA OK</button>
         <button class="btn-audio" onclick="initAudio()">AUDIO OK</button>
-        <button onclick="toggleAI()" id="aiBtn">AI CUT-OUT ON/OFF</button>
+        <button onclick="aiActive=!aiActive" id="aiBtn">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx)">
-        <h3>2. PULS & DEPLASARE (ENTER)</h3>
-        <button class="btn-fx-toggle" id="fxStatus" onclick="fxActive=!fxActive">FX: OFF (ENTER)</button>
+        <h3>2. PULS & DEPLASARE (MANUAL)</h3>
+        <button class="btn-fx-toggle" id="fxStatus" onclick="toggleFX()">FX: OFF (ENTER)</button>
         
-        <label>Marime Puls</label>
-        <input type="range" id="pulsSize" min="0" max="100" value="30" oninput="saveSet()">
+        <label>Marime Puls (Automat)</label>
+        <input type="range" id="pulsSize" min="0" max="150" value="40" oninput="saveSet()">
         
         <label>Intensitate Drift (Deplasare)</label>
-        <input type="range" id="driftInt" min="0" max="200" value="50" oninput="saveSet()">
+        <input type="range" id="driftInt" min="0" max="300" value="60" oninput="saveSet()">
         
-        <label>Viteza Puls / Miscare</label>
-        <input type="range" id="pulsSpeed" min="1" max="50" value="15" oninput="saveSet()">
+        <label>Viteza Miscare (Time Based)</label>
+        <input type="range" id="pulsSpeed" min="1" max="100" value="20" oninput="saveSet()">
 
         <label>Nr. Fragmente Shatter</label>
-        <input type="range" id="shards" min="1" max="20" value="8" oninput="saveSet()">
+        <input type="range" id="shards" min="1" max="25" value="10" oninput="saveSet()">
 
-        <label>Fulgere Margine & RGB</label>
-        <input type="range" id="lightning" min="0" max="100" value="40" oninput="saveSet()">
+        <label>Fulgere Margine (Static/Auto)</label>
+        <input type="range" id="lightning" min="0" max="100" value="50" oninput="saveSet()">
     </div>
 
     <div class="card">
-        <h3>3. FUNDAL CHROMA</h3>
+        <h3>3. SETĂRI SISTEM</h3>
         <select id="chromaColor" onchange="saveSet()">
             <option value="#00ff00">Verde (Chroma)</option>
-            <option value="#0000ff">Albastru</option>
             <option value="#000000">Negru</option>
-            <option value="#ffffff">Alb</option>
+            <option value="#0000ff">Albastru</option>
         </select>
-        <button onclick="localStorage.clear(); location.reload();" style="background:#333; color:#ff4757; font-size:9px; margin-top:10px;">RESET MEMORIE</button>
+        <button onclick="resetMemory()" style="background:#333; color:#ff4757; font-size:9px; margin-top:10px;">RESET MEMORIE</button>
     </div>
 </div>
 
@@ -80,13 +80,9 @@
     selfie.setOptions({ modelSelection: 1 });
     selfie.onResults(draw);
 
-    // Încarcă setările memorate la pornire
     window.onload = () => {
-        const saved = JSON.parse(localStorage.getItem('fx_v26_prefs') || '{}');
-        for(let id in saved) {
-            const el = document.getElementById(id);
-            if(el) el.value = saved[id];
-        }
+        const saved = JSON.parse(localStorage.getItem('fx_v27_prefs') || '{}');
+        for(let id in saved) { if(document.getElementById(id)) document.getElementById(id).value = saved[id]; }
     };
 
     function saveSet() {
@@ -94,8 +90,10 @@
         ['pulsSize','driftInt','pulsSpeed','shards','lightning','chromaColor'].forEach(id => {
             settings[id] = document.getElementById(id).value;
         });
-        localStorage.setItem('fx_v26_prefs', JSON.stringify(settings));
+        localStorage.setItem('fx_v27_prefs', JSON.stringify(settings));
     }
+
+    function resetMemory() { localStorage.clear(); location.reload(); }
 
     async function startCamera() {
         const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
@@ -111,7 +109,12 @@
         audioCtx.createMediaStreamSource(s).connect(analyser);
     }
 
-    function toggleAI() { aiActive = !aiActive; }
+    function toggleFX() {
+        fxActive = !fxActive;
+        const btn = document.getElementById('fxStatus');
+        btn.innerText = fxActive ? "FX: ACTIV (MANUAL)" : "FX: OFF (ENTER)";
+        btn.className = fxActive ? "btn-fx-toggle fx-on" : "btn-fx-toggle";
+    }
 
     function loop() {
         if (aiActive && video.readyState >= 2) { selfie.send({image: video}); } 
@@ -125,60 +128,53 @@
         ctx.fillRect(0, 0, W, H);
         
         hue = (hue + 1) % 360;
-        document.getElementById('fxStatus').innerText = fxActive ? "FX: ON (ENTER)" : "FX: OFF (ENTER)";
 
-        let vol = 0;
-        if (analyser) {
-            analyser.getByteFrequencyData(dataArray);
-            vol = dataArray.reduce((a,b) => a+b) / dataArray.length;
-        }
-
-        // Parametrii din UI
-        const pSize = document.getElementById('pulsSize').value / 10;
+        // Parametrii
+        const pSize = document.getElementById('pulsSize').value;
         const dInt = document.getElementById('driftInt').value;
         const spd = document.getElementById('pulsSpeed').value / 1000;
         const lgt = document.getElementById('lightning').value;
         const shd = document.getElementById('shards').value;
 
+        // Timp intern pentru mișcare independentă de sunet
         const time = Date.now() * spd;
         
-        // Calcul transformări (Puls & Drift)
-        let puls = fxActive ? (Math.sin(time) * pSize * 10) : 0;
-        let driftX = fxActive ? (Math.cos(time * 0.7) * dInt) : 0;
+        // Calcul transformări - acum depind DOAR de timp și parametrii de pe slidere
+        let puls = fxActive ? (Math.sin(time) * pSize) : 0;
+        let driftX = fxActive ? (Math.cos(time * 0.8) * dInt) : 0;
+        let driftY = fxActive ? (Math.sin(time * 0.5) * (dInt/2)) : 0;
 
         let w = (W * 0.9) + puls, h = ((video.videoHeight / video.videoWidth) * w) + puls;
-        let x = (W-w)/2 + driftX, y = (H-h)/2;
+        let x = (W-w)/2 + driftX, y = (H-h)/2 + driftY;
 
-        // 1. Randare Strat de Bază
+        // 1. Strat Bază
         ctx.save();
-        renderLayer(res, x, y, w, h, 1);
+        renderLayer(res, x, y, w, h);
         ctx.restore();
 
-        // 2. Randare Strat Shatter (Pulsatoriu)
         if(fxActive) {
+            // 2. Shatter (Independent de sunet, bazat pe Drift)
             ctx.save();
             ctx.globalCompositeOperation = "screen";
             for(let i=0; i<shd; i++) {
                 ctx.save();
-                ctx.globalAlpha = 0.15;
-                const off = Math.sin(time + i) * (vol + dInt/2);
+                ctx.globalAlpha = 0.2;
+                const offX = Math.sin(time + i) * dInt;
                 ctx.shadowBlur = 15; ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
-                ctx.drawImage(video, x + off, y, w, h);
+                ctx.drawImage(video, x + offX, y, w, h);
                 ctx.restore();
             }
             ctx.restore();
 
-            // 3. Fulgere pe Marginea Dreptunghiului
-            if(lgt > 0) {
-                drawLightning(x, y, w, h, lgt);
-            }
+            // 3. Fulgere (Static/Auto pe margini)
+            if(lgt > 0) drawLightning(x, y, w, h, lgt);
         }
     }
 
-    function drawLightning(x, y, w, h, power) {
+    function drawLightning(x, y, w, h, pwr) {
         ctx.save();
         ctx.strokeStyle = `hsl(${hue}, 100%, 75%)`;
-        ctx.lineWidth = power / 15;
+        ctx.lineWidth = pwr / 15;
         ctx.shadowBlur = 10; ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath();
         let pts = [[x,y], [x+w,y], [x+w,y+h], [x,y+h], [x,y]];
@@ -186,8 +182,8 @@
             if(i===0) ctx.moveTo(p[0], p[1]);
             else {
                 for(let s=1; s<=4; s++) {
-                    let px = pts[i-1][0] + (p[0]-pts[i-1][0]) * (s/4) + (Math.random()-0.5)*25;
-                    let py = pts[i-1][1] + (p[1]-pts[i-1][1]) * (s/4) + (Math.random()-0.5)*25;
+                    let px = pts[i-1][0] + (p[0]-pts[i-1][0]) * (s/4) + (Math.random()-0.5)*30;
+                    let py = pts[i-1][1] + (p[1]-pts[i-1][1]) * (s/4) + (Math.random()-0.5)*30;
                     ctx.lineTo(px, py);
                 }
             }
@@ -196,8 +192,7 @@
         ctx.restore();
     }
 
-    function renderLayer(res, x, y, w, h, alpha) {
-        ctx.globalAlpha = alpha;
+    function renderLayer(res, x, y, w, h) {
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
             const tc = t.getContext('2d');
@@ -208,7 +203,7 @@
         } else { ctx.drawImage(video, x, y, w, h); }
     }
 
-    window.onkeydown = (e) => { if(e.key === 'Enter') fxActive = !fxActive; };
+    window.onkeydown = (e) => { if(e.key === 'Enter') toggleFX(); };
 </script>
 </body>
 </html>
