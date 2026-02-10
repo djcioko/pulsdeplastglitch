@@ -2,23 +2,22 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Shatter Pro V27 - Independent FX</title>
+    <title>Clean Glitch V29 - Audio Only FX</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #050505; --fx: #ff0050; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
         .sidebar { width: 320px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 20; }
         .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; }
-        #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #000; }
+        #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #000; overflow: hidden; }
         canvas { width: 100%; height: 100%; position: absolute; }
         .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; margin-bottom: 5px; }
         h3 { font-size: 10px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; }
         button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
         .btn-cam { background: #2ed573; } .btn-audio { background: #00d4ff; }
-        .btn-fx-toggle { background: var(--fx); color: white; text-transform: uppercase; font-size: 11px; }
-        .fx-on { background: #2ed573 !important; color: black; }
         label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
         input[type="range"], select { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; }
+        .status-pill { font-size: 9px; padding: 2px 6px; border-radius: 10px; float: right; background: #333; }
     </style>
 </head>
 <body>
@@ -27,38 +26,32 @@
     <div class="card">
         <h3>1. ACTIVARE</h3>
         <button class="btn-cam" onclick="startCamera()">CAMERA OK</button>
-        <button class="btn-audio" onclick="initAudio()">AUDIO OK</button>
-        <button onclick="aiActive=!aiActive" id="aiBtn">AI CUT-OUT ON/OFF</button>
+        <button class="btn-audio" id="micBtn" onclick="initAudio()">START AUDIO (PENTRU FX)</button>
+        <button onclick="aiActive=!aiActive">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx)">
-        <h3>2. PULS & DEPLASARE (MANUAL)</h3>
-        <button class="btn-fx-toggle" id="fxStatus" onclick="toggleFX()">FX: OFF (ENTER)</button>
+        <h3>2. GLITCH AUDIO <span id="micStatus" class="status-pill">Liniște</span></h3>
+        <label>Prag Activare Microfon (FX)</label>
+        <input type="range" id="micSens" min="0" max="100" value="30" oninput="saveSet()">
         
-        <label>Marime Puls (Automat)</label>
-        <input type="range" id="pulsSize" min="0" max="150" value="40" oninput="saveSet()">
+        <label>Intensitate Glitch (Bătăi)</label>
+        <input type="range" id="glitchInt" min="0" max="100" value="50" oninput="saveSet()">
         
-        <label>Intensitate Drift (Deplasare)</label>
-        <input type="range" id="driftInt" min="0" max="300" value="60" oninput="saveSet()">
-        
-        <label>Viteza Miscare (Time Based)</label>
-        <input type="range" id="pulsSpeed" min="1" max="100" value="20" oninput="saveSet()">
+        <label>Deplasare Imagine (Manual/ENTER)</label>
+        <input type="range" id="driftInt" min="0" max="200" value="40" oninput="saveSet()">
 
-        <label>Nr. Fragmente Shatter</label>
-        <input type="range" id="shards" min="1" max="25" value="10" oninput="saveSet()">
-
-        <label>Fulgere Margine (Static/Auto)</label>
-        <input type="range" id="lightning" min="0" max="100" value="50" oninput="saveSet()">
+        <label>Viteza Mișcare</label>
+        <input type="range" id="moveSpd" min="1" max="100" value="20" oninput="saveSet()">
     </div>
 
     <div class="card">
-        <h3>3. SETĂRI SISTEM</h3>
+        <h3>3. SISTEM</h3>
         <select id="chromaColor" onchange="saveSet()">
             <option value="#00ff00">Verde (Chroma)</option>
             <option value="#000000">Negru</option>
-            <option value="#0000ff">Albastru</option>
         </select>
-        <button onclick="resetMemory()" style="background:#333; color:#ff4757; font-size:9px; margin-top:10px;">RESET MEMORIE</button>
+        <button onclick="localStorage.clear(); location.reload();" style="font-size:9px; margin-top:10px;">RESET MEMORIE</button>
     </div>
 </div>
 
@@ -72,7 +65,7 @@
     const video = document.getElementById('vid');
     const canvas = document.getElementById('out');
     const ctx = canvas.getContext('2d');
-    let aiActive = false, fxActive = false, hue = 0;
+    let aiActive = false, fxForced = false, micActive = false;
     let audioCtx, analyser, dataArray;
     const W = 1080, H = 1920;
 
@@ -81,19 +74,17 @@
     selfie.onResults(draw);
 
     window.onload = () => {
-        const saved = JSON.parse(localStorage.getItem('fx_v27_prefs') || '{}');
+        const saved = JSON.parse(localStorage.getItem('fx_v29_prefs') || '{}');
         for(let id in saved) { if(document.getElementById(id)) document.getElementById(id).value = saved[id]; }
     };
 
     function saveSet() {
         const settings = {};
-        ['pulsSize','driftInt','pulsSpeed','shards','lightning','chromaColor'].forEach(id => {
+        ['micSens','glitchInt','driftInt','moveSpd','chromaColor'].forEach(id => {
             settings[id] = document.getElementById(id).value;
         });
-        localStorage.setItem('fx_v27_prefs', JSON.stringify(settings));
+        localStorage.setItem('fx_v29_prefs', JSON.stringify(settings));
     }
-
-    function resetMemory() { localStorage.clear(); location.reload(); }
 
     async function startCamera() {
         const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
@@ -104,16 +95,11 @@
     async function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-        analyser = audioCtx.createAnalyser(); analyser.fftSize = 128;
+        analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         audioCtx.createMediaStreamSource(s).connect(analyser);
-    }
-
-    function toggleFX() {
-        fxActive = !fxActive;
-        const btn = document.getElementById('fxStatus');
-        btn.innerText = fxActive ? "FX: ACTIV (MANUAL)" : "FX: OFF (ENTER)";
-        btn.className = fxActive ? "btn-fx-toggle fx-on" : "btn-fx-toggle";
+        micActive = true;
+        document.getElementById('micBtn').style.background = "#2ed573";
     }
 
     function loop() {
@@ -126,73 +112,54 @@
         canvas.width = W; canvas.height = H;
         ctx.fillStyle = document.getElementById('chromaColor').value;
         ctx.fillRect(0, 0, W, H);
-        
-        hue = (hue + 1) % 360;
 
-        // Parametrii
-        const pSize = document.getElementById('pulsSize').value;
-        const dInt = document.getElementById('driftInt').value;
-        const spd = document.getElementById('pulsSpeed').value / 1000;
-        const lgt = document.getElementById('lightning').value;
-        const shd = document.getElementById('shards').value;
-
-        // Timp intern pentru mișcare independentă de sunet
-        const time = Date.now() * spd;
-        
-        // Calcul transformări - acum depind DOAR de timp și parametrii de pe slidere
-        let puls = fxActive ? (Math.sin(time) * pSize) : 0;
-        let driftX = fxActive ? (Math.cos(time * 0.8) * dInt) : 0;
-        let driftY = fxActive ? (Math.sin(time * 0.5) * (dInt/2)) : 0;
-
-        let w = (W * 0.9) + puls, h = ((video.videoHeight / video.videoWidth) * w) + puls;
-        let x = (W-w)/2 + driftX, y = (H-h)/2 + driftY;
-
-        // 1. Strat Bază
-        ctx.save();
-        renderLayer(res, x, y, w, h);
-        ctx.restore();
-
-        if(fxActive) {
-            // 2. Shatter (Independent de sunet, bazat pe Drift)
-            ctx.save();
-            ctx.globalCompositeOperation = "screen";
-            for(let i=0; i<shd; i++) {
-                ctx.save();
-                ctx.globalAlpha = 0.2;
-                const offX = Math.sin(time + i) * dInt;
-                ctx.shadowBlur = 15; ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
-                ctx.drawImage(video, x + offX, y, w, h);
-                ctx.restore();
-            }
-            ctx.restore();
-
-            // 3. Fulgere (Static/Auto pe margini)
-            if(lgt > 0) drawLightning(x, y, w, h, lgt);
+        let vol = 0;
+        if (micActive && analyser) {
+            analyser.getByteFrequencyData(dataArray);
+            vol = dataArray.reduce((a,b) => a+b) / dataArray.length;
         }
-    }
 
-    function drawLightning(x, y, w, h, pwr) {
+        const sens = document.getElementById('micSens').value;
+        const gInt = document.getElementById('glitchInt').value;
+        const dInt = document.getElementById('driftInt').value;
+        const spd = document.getElementById('moveSpd').value / 1000;
+        
+        const isBeat = micActive && (vol > sens);
+        const time = Date.now() * spd;
+
+        // Statut microfon vizual
+        document.getElementById('micStatus').innerText = isBeat ? "BĂTAIE!" : "Liniște";
+        document.getElementById('micStatus').style.background = isBeat ? "#ff0050" : "#333";
+
+        // Mișcare lină (ENTER sau Permanent dacă dorești)
+        let driftX = fxForced ? (Math.cos(time) * dInt) : 0;
+        let w = W * 0.9, h = (video.videoHeight / video.videoWidth) * w || W * 1.77;
+        let x = (W-w)/2 + driftX, y = (H-h)/2;
+
         ctx.save();
-        ctx.strokeStyle = `hsl(${hue}, 100%, 75%)`;
-        ctx.lineWidth = pwr / 15;
-        ctx.shadowBlur = 10; ctx.shadowColor = ctx.strokeStyle;
-        ctx.beginPath();
-        let pts = [[x,y], [x+w,y], [x+w,y+h], [x,y+h], [x,y]];
-        pts.forEach((p, i) => {
-            if(i===0) ctx.moveTo(p[0], p[1]);
-            else {
-                for(let s=1; s<=4; s++) {
-                    let px = pts[i-1][0] + (p[0]-pts[i-1][0]) * (s/4) + (Math.random()-0.5)*30;
-                    let py = pts[i-1][1] + (p[1]-pts[i-1][1]) * (s/4) + (Math.random()-0.5)*30;
-                    ctx.lineTo(px, py);
-                }
-            }
-        });
-        ctx.stroke();
+        
+        // --- EFECTUL NOU: RGB SPLIT GLITCH (DOAR PE SUNET) ---
+        if (isBeat && gInt > 0) {
+            let offset = (vol / 10) * (gInt / 50);
+            
+            // Canal Roșu
+            ctx.globalCompositeOperation = "screen";
+            ctx.filter = `brightness(${100 + vol}%)`;
+            renderLayer(res, x + offset, y, w, h, 0.7);
+            
+            // Canal Albastru
+            ctx.filter = `brightness(100%)`;
+            renderLayer(res, x - offset, y, w, h, 0.7);
+        } else {
+            // Imagine normală când e liniște
+            renderLayer(res, x, y, w, h, 1);
+        }
+
         ctx.restore();
     }
 
-    function renderLayer(res, x, y, w, h) {
+    function renderLayer(res, x, y, w, h, alpha) {
+        ctx.globalAlpha = alpha;
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
             const tc = t.getContext('2d');
@@ -200,10 +167,12 @@
             tc.globalCompositeOperation = 'destination-in';
             tc.drawImage(res.segmentationMask, x, y, w, h);
             ctx.drawImage(t, 0, 0);
-        } else { ctx.drawImage(video, x, y, w, h); }
+        } else if (video.readyState >= 2) {
+            ctx.drawImage(video, x, y, w, h);
+        }
     }
 
-    window.onkeydown = (e) => { if(e.key === 'Enter') toggleFX(); };
+    window.onkeydown = (e) => { if(e.key === 'Enter') fxForced = !fxForced; };
 </script>
 </body>
 </html>
