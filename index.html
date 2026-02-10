@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Clean Glitch V29 - Audio Only FX</title>
+    <title>Bass Shake V30 - No White Flash</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #050505; --fx: #ff0050; }
@@ -14,10 +14,11 @@
         .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; margin-bottom: 5px; }
         h3 { font-size: 10px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; }
         button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
-        .btn-cam { background: #2ed573; } .btn-audio { background: #00d4ff; }
+        .btn-audio { background: #00d4ff; color: black; }
         label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
-        input[type="range"], select { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; }
-        .status-pill { font-size: 9px; padding: 2px 6px; border-radius: 10px; float: right; background: #333; }
+        input[type="range"] { width: 100%; }
+        .vu-bass { height: 4px; background: #333; border-radius: 2px; margin-top: 5px; overflow: hidden; }
+        #vuFill { height: 100%; width: 0%; background: var(--fx); transition: width 0.1s; }
     </style>
 </head>
 <body>
@@ -25,33 +26,27 @@
 <div class="sidebar">
     <div class="card">
         <h3>1. ACTIVARE</h3>
-        <button class="btn-cam" onclick="startCamera()">CAMERA OK</button>
-        <button class="btn-audio" id="micBtn" onclick="initAudio()">START AUDIO (PENTRU FX)</button>
+        <button onclick="startCamera()" style="background:#2ed573">CAMERA OK</button>
+        <button class="btn-audio" id="micBtn" onclick="initAudio()">START AUDIO (BASS DETECTION)</button>
         <button onclick="aiActive=!aiActive">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx)">
-        <h3>2. GLITCH AUDIO <span id="micStatus" class="status-pill">Liniște</span></h3>
-        <label>Prag Activare Microfon (FX)</label>
-        <input type="range" id="micSens" min="0" max="100" value="30" oninput="saveSet()">
+        <h3>2. BASS FX CONTROL</h3>
+        <div class="vu-bass"><div id="vuFill"></div></div>
+        <label>Sensibilitate Bass (Prag)</label>
+        <input type="range" id="micSens" min="0" max="255" value="50" oninput="saveSet()">
         
-        <label>Intensitate Glitch (Bătăi)</label>
-        <input type="range" id="glitchInt" min="0" max="100" value="50" oninput="saveSet()">
+        <label>Intensitate Tremur (Shake)</label>
+        <input type="range" id="shakeInt" min="0" max="50" value="15" oninput="saveSet()">
         
-        <label>Deplasare Imagine (Manual/ENTER)</label>
-        <input type="range" id="driftInt" min="0" max="200" value="40" oninput="saveSet()">
-
-        <label>Viteza Mișcare</label>
+        <label>Viteza Deplasare (ENTER)</label>
         <input type="range" id="moveSpd" min="1" max="100" value="20" oninput="saveSet()">
     </div>
 
     <div class="card">
         <h3>3. SISTEM</h3>
-        <select id="chromaColor" onchange="saveSet()">
-            <option value="#00ff00">Verde (Chroma)</option>
-            <option value="#000000">Negru</option>
-        </select>
-        <button onclick="localStorage.clear(); location.reload();" style="font-size:9px; margin-top:10px;">RESET MEMORIE</button>
+        <button onclick="localStorage.clear(); location.reload();" style="font-size:9px;">RESET MEMORIE</button>
     </div>
 </div>
 
@@ -74,28 +69,26 @@
     selfie.onResults(draw);
 
     window.onload = () => {
-        const saved = JSON.parse(localStorage.getItem('fx_v29_prefs') || '{}');
+        const saved = JSON.parse(localStorage.getItem('fx_v30_prefs') || '{}');
         for(let id in saved) { if(document.getElementById(id)) document.getElementById(id).value = saved[id]; }
     };
 
     function saveSet() {
         const settings = {};
-        ['micSens','glitchInt','driftInt','moveSpd','chromaColor'].forEach(id => {
-            settings[id] = document.getElementById(id).value;
-        });
-        localStorage.setItem('fx_v29_prefs', JSON.stringify(settings));
+        ['micSens','shakeInt','moveSpd'].forEach(id => { settings[id] = document.getElementById(id).value; });
+        localStorage.setItem('fx_v30_prefs', JSON.stringify(settings));
     }
 
     async function startCamera() {
         const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-        video.srcObject = s;
-        video.onloadedmetadata = () => { video.play(); loop(); };
+        video.srcObject = s; video.onloadedmetadata = () => { video.play(); loop(); };
     }
 
     async function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-        analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024; // Rezoluție mai mare pentru frecvențe
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         audioCtx.createMediaStreamSource(s).connect(analyser);
         micActive = true;
@@ -110,56 +103,56 @@
 
     function draw(res) {
         canvas.width = W; canvas.height = H;
-        ctx.fillStyle = document.getElementById('chromaColor').value;
-        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
 
-        let vol = 0;
+        let bassVal = 0;
         if (micActive && analyser) {
             analyser.getByteFrequencyData(dataArray);
-            vol = dataArray.reduce((a,b) => a+b) / dataArray.length;
+            // Calculăm media doar pentru primele 10 benzi (Bass: 20-150Hz)
+            for(let i=0; i<10; i++) { bassVal += dataArray[i]; }
+            bassVal /= 10;
         }
 
         const sens = document.getElementById('micSens').value;
-        const gInt = document.getElementById('glitchInt').value;
-        const dInt = document.getElementById('driftInt').value;
+        const sInt = document.getElementById('shakeInt').value;
         const spd = document.getElementById('moveSpd').value / 1000;
         
-        const isBeat = micActive && (vol > sens);
+        // Vizualizare Bass în Sidebar
+        document.getElementById('vuFill').style.width = (bassVal/2.5) + "%";
+
+        const isBassBeat = micActive && (bassVal > sens);
         const time = Date.now() * spd;
 
-        // Statut microfon vizual
-        document.getElementById('micStatus').innerText = isBeat ? "BĂTAIE!" : "Liniște";
-        document.getElementById('micStatus').style.background = isBeat ? "#ff0050" : "#333";
-
-        // Mișcare lină (ENTER sau Permanent dacă dorești)
-        let driftX = fxForced ? (Math.cos(time) * dInt) : 0;
+        let driftX = fxForced ? (Math.cos(time) * 50) : 0;
         let w = W * 0.9, h = (video.videoHeight / video.videoWidth) * w || W * 1.77;
         let x = (W-w)/2 + driftX, y = (H-h)/2;
 
         ctx.save();
         
-        // --- EFECTUL NOU: RGB SPLIT GLITCH (DOAR PE SUNET) ---
-        if (isBeat && gInt > 0) {
-            let offset = (vol / 10) * (gInt / 50);
-            
-            // Canal Roșu
+        if (isBassBeat) {
+            // EFECT BASS SHAKE (RGB SPLIT)
+            let shift = (bassVal / 255) * sInt;
             ctx.globalCompositeOperation = "screen";
-            ctx.filter = `brightness(${100 + vol}%)`;
-            renderLayer(res, x + offset, y, w, h, 0.7);
             
-            // Canal Albastru
-            ctx.filter = `brightness(100%)`;
-            renderLayer(res, x - offset, y, w, h, 0.7);
+            // Strat Roșu (ușor stânga)
+            renderLayer(res, x + shift, y + (Math.random()-0.5)*shift, w, h, 0.8, "red");
+            // Strat Albastru (ușor dreapta)
+            renderLayer(res, x - shift, y + (Math.random()-0.5)*shift, w, h, 0.8, "blue");
         } else {
-            // Imagine normală când e liniște
-            renderLayer(res, x, y, w, h, 1);
+            renderLayer(res, x, y, w, h, 1, "none");
         }
 
         ctx.restore();
     }
 
-    function renderLayer(res, x, y, w, h, alpha) {
+    function renderLayer(res, x, y, w, h, alpha, filterType) {
+        ctx.save();
         ctx.globalAlpha = alpha;
+        
+        // Aplicăm un filtru colorat rapid doar pentru shake
+        if(filterType === "red") ctx.filter = "contrast(150%) sepia(100%) hue-rotate(-50deg) saturate(5)";
+        if(filterType === "blue") ctx.filter = "contrast(150%) sepia(100%) hue-rotate(180deg) saturate(5)";
+
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
             const tc = t.getContext('2d');
@@ -170,6 +163,7 @@
         } else if (video.readyState >= 2) {
             ctx.drawImage(video, x, y, w, h);
         }
+        ctx.restore();
     }
 
     window.onkeydown = (e) => { if(e.key === 'Enter') fxForced = !fxForced; };
