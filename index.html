@@ -2,51 +2,56 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Hybrid Bass V31 - Complete FX</title>
+    <title>Shatter V29 - Fullscreen & Smart Hybrid</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
         :root { --accent: #00d4ff; --bg: #050505; --fx: #ff0050; }
         body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .sidebar { width: 320px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; z-index: 20; }
-        .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; }
-        #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #000; overflow: hidden; }
+        .sidebar { width: 320px; background: #111; border-right: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 20; transition: 0.3s; }
+        .main { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; position: relative; }
+        
+        #container { height: 92vh; aspect-ratio: 9/16; border: 2px solid #333; position: relative; background: #000; transition: all 0.5s ease; }
+        #container.fullscreen { width: 100vw; height: 100vh; border: none; aspect-ratio: auto; }
+        
         canvas { width: 100%; height: 100%; position: absolute; }
         .card { background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; margin-bottom: 5px; }
-        h3 { font-size: 10px; margin: 0 0 8px; color: var(--accent); text-transform: uppercase; }
-        button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; transition: 0.3s; }
+        h3 { font-size: 10px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; }
+        button { width: 100%; padding: 10px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 5px; }
+        .btn-cam { background: #2ed573; } .btn-audio { background: #00d4ff; }
+        .btn-fx-toggle { background: #444; color: white; text-transform: uppercase; font-size: 11px; }
+        .fx-active { background: var(--fx) !important; box-shadow: 0 0 15px var(--fx); }
+        .btn-fs { background: #f1c40f; color: black; position: absolute; top: 10px; right: 10px; z-index: 100; width: auto; padding: 8px 15px; opacity: 1; transition: 0.3s; }
+        
+        .hide-ui .sidebar { margin-left: -320px; }
+        .hide-ui .btn-fs { opacity: 0; }
+        
         label { font-size: 10px; color: #888; display: block; margin-top: 5px; }
-        input[type="range"], select { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 4px; border-radius: 4px; }
-        .vu-bass { height: 4px; background: #333; border-radius: 2px; margin-top: 5px; overflow: hidden; }
-        #vuFill { height: 100%; width: 0%; background: var(--fx); }
+        input[type="range"], select { width: 100%; background: #222; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; }
     </style>
 </head>
-<body>
+<body id="body">
 
 <div class="sidebar">
     <div class="card">
-        <h3>1. ACTIVARE</h3>
-        <button onclick="startCamera()" style="background:#2ed573">CAMERA OK</button>
-        <button id="micBtn" onclick="initAudio()" style="background:#00d4ff">START AUDIO</button>
-        <button onclick="aiActive=!aiActive" style="background:#444; color:white;">AI CUT-OUT ON/OFF</button>
+        <h3>1. ACTIVARE SURSE</h3>
+        <button class="btn-cam" onclick="startCamera()">CAMERA OK</button>
+        <button class="btn-audio" id="micBtn" onclick="initAudio()">START MICROFON</button>
+        <button onclick="aiActive=!aiActive" id="aiBtn">AI CUT-OUT ON/OFF</button>
     </div>
 
     <div class="card" style="border-left: 3px solid var(--fx)">
-        <h3>2. FX BASS & MISCARE (ENTER)</h3>
-        <div class="vu-bass"><div id="vuFill"></div></div>
-        <label>Sensibilitate Bass (Trigger)</label>
-        <input type="range" id="micSens" min="0" max="255" value="60" oninput="saveSet()">
-        
-        <label>Intensitate Shake RGB</label>
-        <input type="range" id="shakeInt" min="0" max="100" value="20" oninput="saveSet()">
-        
-        <label>Marime Puls (Preset)</label>
-        <input type="range" id="pulsSize" min="0" max="150" value="40" oninput="saveSet()">
-
-        <label>Intensitate Drift (Deplasare)</label>
-        <input type="range" id="driftInt" min="0" max="300" value="70" oninput="saveSet()">
-        
-        <label>Viteza Miscare</label>
-        <input type="range" id="moveSpd" min="1" max="100" value="25" oninput="saveSet()">
+        <h3>2. CONTROL FX</h3>
+        <button class="btn-fx-toggle" id="fxStatus" onclick="toggleFX()">FORȚEAZĂ EFECTE (ENTER)</button>
+        <label>Sensibilitate Microfon</label>
+        <input type="range" id="micSens" min="0" max="100" value="25" oninput="saveSet()">
+        <label>Mărime Puls</label>
+        <input type="range" id="pulsSize" min="0" max="150" value="50" oninput="saveSet()">
+        <label>Intensitate Drift</label>
+        <input type="range" id="driftInt" min="0" max="300" value="80" oninput="saveSet()">
+        <label>Viteza Mișcare</label>
+        <input type="range" id="pulsSpeed" min="1" max="100" value="30" oninput="saveSet()">
+        <label>Fulgere Margine</label>
+        <input type="range" id="lightning" min="0" max="100" value="60" oninput="saveSet()">
     </div>
 
     <div class="card">
@@ -56,11 +61,12 @@
             <option value="#000000">Negru</option>
             <option value="#0000ff">Albastru</option>
         </select>
-        <button onclick="localStorage.clear(); location.reload();" style="font-size:9px; margin-top:10px; background:#333; color:#aaa;">RESET SETĂRI</button>
+        <button onclick="localStorage.clear(); location.reload();" style="background:#333; color:#aaa; font-size:9px; margin-top:10px;">RESET MEMORIE</button>
     </div>
 </div>
 
-<div class="main">
+<div class="main" id="mainZone">
+    <button class="btn-fs" id="fsBtn" onclick="toggleFullscreen()">FULLSCREEN (F)</button>
     <div id="container"><canvas id="out"></canvas></div>
 </div>
 
@@ -70,8 +76,8 @@
     const video = document.getElementById('vid');
     const canvas = document.getElementById('out');
     const ctx = canvas.getContext('2d');
-    let aiActive = false, fxForced = false, micActive = false, hue = 0;
-    let audioCtx, analyser, dataArray;
+    let aiActive = false, fxForced = false, micActive = false, hue = 0, isFS = false;
+    let audioCtx, analyser, dataArray, uiTimer;
     const W = 1080, H = 1920;
 
     const selfie = new SelfieSegmentation({locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}`});
@@ -79,32 +85,61 @@
     selfie.onResults(draw);
 
     window.onload = () => {
-        const saved = JSON.parse(localStorage.getItem('fx_v31_prefs') || '{}');
+        const saved = JSON.parse(localStorage.getItem('fx_v29_prefs') || '{}');
         for(let id in saved) { if(document.getElementById(id)) document.getElementById(id).value = saved[id]; }
     };
 
     function saveSet() {
         const settings = {};
-        ['micSens','shakeInt','pulsSize','driftInt','moveSpd','chromaColor'].forEach(id => {
+        ['micSens','pulsSize','driftInt','pulsSpeed','lightning','chromaColor'].forEach(id => {
             settings[id] = document.getElementById(id).value;
         });
-        localStorage.setItem('fx_v31_prefs', JSON.stringify(settings));
+        localStorage.setItem('fx_v29_prefs', JSON.stringify(settings));
     }
+
+    function toggleFullscreen() {
+        isFS = !isFS;
+        const container = document.getElementById('container');
+        const body = document.getElementById('body');
+        if(isFS) {
+            container.classList.add('fullscreen');
+            document.getElementById('fsBtn').innerText = "EXIT FULLSCREEN (ESC)";
+        } else {
+            container.classList.remove('fullscreen');
+            document.getElementById('fsBtn').innerText = "FULLSCREEN (F)";
+            body.classList.remove('hide-ui');
+        }
+    }
+
+    // Auto-hide UI in Fullscreen when mouse is still
+    document.addEventListener('mousemove', () => {
+        if(!isFS) return;
+        document.getElementById('body').classList.remove('hide-ui');
+        clearTimeout(uiTimer);
+        uiTimer = setTimeout(() => {
+            if(isFS) document.getElementById('body').classList.add('hide-ui');
+        }, 3000);
+    });
 
     async function startCamera() {
         const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-        video.srcObject = s; video.onloadedmetadata = () => { video.play(); loop(); };
+        video.srcObject = s;
+        video.onloadedmetadata = () => { video.play(); loop(); };
     }
 
     async function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-        analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024;
+        analyser = audioCtx.createAnalyser(); analyser.fftSize = 128;
         dataArray = new Uint8Array(analyser.frequencyBinCount);
         audioCtx.createMediaStreamSource(s).connect(analyser);
         micActive = true;
-        document.getElementById('micBtn').style.background = "#2ed573";
-        document.getElementById('micBtn').innerText = "AUDIO OK";
+        document.getElementById('micBtn').style.background = "#00d4ff";
+    }
+
+    function toggleFX() {
+        fxForced = !fxForced;
+        document.getElementById('fxStatus').classList.toggle('fx-active', fxForced);
     }
 
     function loop() {
@@ -119,49 +154,48 @@
         ctx.fillRect(0, 0, W, H);
         hue = (hue + 1) % 360;
 
-        let bassVal = 0;
+        let vol = 0;
         if (micActive && analyser) {
             analyser.getByteFrequencyData(dataArray);
-            for(let i=0; i<10; i++) bassVal += dataArray[i];
-            bassVal /= 10;
+            vol = dataArray.reduce((a,b) => a+b) / dataArray.length;
         }
 
-        const sens = document.getElementById('micSens').value;
-        const sInt = document.getElementById('shakeInt').value;
-        const pSize = document.getElementById('pulsSize').value;
-        const dInt = document.getElementById('driftInt').value;
-        const spd = document.getElementById('moveSpd').value / 1000;
-        
-        document.getElementById('vuFill').style.width = (bassVal/2.5) + "%";
-        const isBass = micActive && (bassVal > sens);
-        const time = Date.now() * spd;
+        const mSens = document.getElementById('micSens').value;
+        const shouldRun = fxForced || (micActive && vol > mSens);
+        const time = Date.now() * (document.getElementById('pulsSpeed').value / 1000);
 
-        // Calcul mișcare continuă (doar dacă e apăsat ENTER)
-        let puls = fxForced ? (Math.sin(time) * pSize) : 0;
-        let driftX = fxForced ? (Math.cos(time * 0.8) * dInt) : 0;
-        let driftY = fxForced ? (Math.sin(time * 0.5) * (dInt/2)) : 0;
+        let pSize = shouldRun ? (Math.sin(time) * document.getElementById('pulsSize').value) : 0;
+        let dInt = shouldRun ? (Math.cos(time * 0.8) * document.getElementById('driftInt').value) : 0;
 
-        let w = (W * 0.9) + puls, h = ((video.videoHeight / video.videoWidth) * w) + puls;
-        let x = (W-w)/2 + driftX, y = (H-h)/2 + driftY;
+        let w = (W * 0.9) + pSize, h = ((video.videoHeight / video.videoWidth) * w) + pSize;
+        let x = (W-w)/2 + dInt, y = (H-h)/2;
 
-        ctx.save();
-        if (isBass) {
-            let shift = (bassVal / 255) * sInt;
+        renderLayer(res, x, y, w, h);
+
+        if(shouldRun) {
             ctx.globalCompositeOperation = "screen";
-            renderLayer(res, x + shift, y, w, h, 0.7, "red");
-            renderLayer(res, x - shift, y, w, h, 0.7, "blue");
-        } else {
-            renderLayer(res, x, y, w, h, 1, "none");
+            for(let i=0; i<5; i++) {
+                ctx.save(); ctx.globalAlpha = 0.15;
+                ctx.drawImage(video, x + Math.sin(time+i)*dInt, y, w, h);
+                ctx.restore();
+            }
+            if(document.getElementById('lightning').value > 0) drawLightning(x, y, w, h, document.getElementById('lightning').value);
         }
-        ctx.restore();
     }
 
-    function renderLayer(res, x, y, w, h, alpha, filterType) {
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        if(filterType === "red") ctx.filter = "contrast(150%) hue-rotate(-50deg) saturate(3)";
-        if(filterType === "blue") ctx.filter = "contrast(150%) hue-rotate(180deg) saturate(3)";
+    function drawLightning(x, y, w, h, pwr) {
+        ctx.save(); ctx.strokeStyle = `hsl(${hue}, 100%, 75%)`; ctx.lineWidth = pwr / 15; ctx.beginPath();
+        let pts = [[x,y], [x+w,y], [x+w,y+h], [x,y+h], [x,y]];
+        pts.forEach((p, i) => {
+            if(i===0) ctx.moveTo(p[0], p[1]);
+            else { for(let s=1; s<=4; s++) {
+                ctx.lineTo(pts[i-1][0]+(p[0]-pts[i-1][0])*(s/4)+(Math.random()-0.5)*30, pts[i-1][1]+(p[1]-pts[i-1][1])*(s/4)+(Math.random()-0.5)*30);
+            }}
+        });
+        ctx.stroke(); ctx.restore();
+    }
 
+    function renderLayer(res, x, y, w, h) {
         if(aiActive && res.segmentationMask) {
             const t = document.createElement('canvas'); t.width = W; t.height = H;
             const tc = t.getContext('2d');
@@ -169,13 +203,14 @@
             tc.globalCompositeOperation = 'destination-in';
             tc.drawImage(res.segmentationMask, x, y, w, h);
             ctx.drawImage(t, 0, 0);
-        } else if (video.readyState >= 2) {
-            ctx.drawImage(video, x, y, w, h);
-        }
-        ctx.restore();
+        } else { ctx.drawImage(video, x, y, w, h); }
     }
 
-    window.onkeydown = (e) => { if(e.key === 'Enter') fxForced = !fxForced; };
+    window.onkeydown = (e) => { 
+        if(e.key === 'Enter') toggleFX();
+        if(e.key === 'f' || e.key === 'F') toggleFullscreen();
+        if(e.key === 'Escape' && isFS) toggleFullscreen();
+    };
 </script>
 </body>
 </html>
